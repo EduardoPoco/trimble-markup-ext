@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Markup Creator</title>
+<script src="https://components.connect.trimble.com/trimble-connect-workspace-api/index.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #0f1117;
+    --surface:  #1a1d27;
+    --border:   #2a2d3a;
+    --accent:   #00d4aa;
+    --accent2:  #ff6b35;
+    --text:     #e2e4ed;
+    --muted:    #666a80;
+    --success:  #00d4aa;
+    --error:    #ff4757;
+    --warn:     #ffa726;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 13px;
+    overflow: hidden;
+  }
+
+  .app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    padding: 12px;
+    gap: 10px;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .header-icon {
+    width: 28px; height: 28px;
+    background: var(--accent);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .header-icon svg { width: 16px; height: 16px; fill: var(--bg); }
+  .header-title {
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: var(--text);
+  }
+  .header-subtitle {
+    font-size: 10px;
+    color: var(--muted);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--muted);
+    margin-left: auto;
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  .status-dot.connected { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+  .status-dot.error { background: var(--error); }
+
+  /* Property selector */
+  .section-label {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 5px;
+  }
+
+  .input-row {
+    display: flex;
+    gap: 6px;
+  }
+
+  input, select {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 7px 10px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+  input::placeholder { color: var(--muted); }
+
+  select option { background: var(--surface); }
+
+  /* Buttons */
+  .btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+  .btn-primary {
+    background: var(--accent);
+    color: var(--bg);
+    width: 100%;
+  }
+  .btn-primary:hover { background: #00efc0; transform: translateY(-1px); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-primary:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; transform: none; }
+
+  .btn-secondary {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    flex: 1;
+  }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+  .btn-danger {
+    background: transparent;
+    color: var(--error);
+    border: 1px solid var(--error);
+    flex: 1;
+  }
+  .btn-danger:hover { background: var(--error); color: white; }
+
+  /* Selection info */
+  .selection-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .selection-count {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--accent);
+    line-height: 1;
+    min-width: 30px;
+  }
+  .selection-count.zero { color: var(--muted); }
+  .selection-info { flex: 1; }
+  .selection-label { font-size: 11px; color: var(--muted); }
+  .selection-detail { font-size: 11px; color: var(--text); margin-top: 2px; font-family: 'IBM Plex Mono', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* Log */
+  .log-box {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow-y: auto;
+    padding: 8px;
+    min-height: 0;
+  }
+  .log-entry {
+    display: flex;
+    gap: 6px;
+    padding: 3px 4px;
+    border-radius: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    line-height: 1.4;
+  }
+  .log-entry:hover { background: rgba(255,255,255,0.03); }
+  .log-time { color: var(--muted); flex-shrink: 0; }
+  .log-ok   { color: var(--success); }
+  .log-err  { color: var(--error); }
+  .log-info { color: var(--warn); }
+  .log-msg  { color: var(--text); word-break: break-all; }
+
+  .empty-log {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: 6px;
+    color: var(--muted);
+  }
+  .empty-log svg { width: 24px; height: 24px; opacity: 0.3; }
+
+  /* Auto mode toggle */
+  .auto-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+  .toggle {
+    position: relative;
+    width: 32px; height: 18px;
+    flex-shrink: 0;
+  }
+  .toggle input { display: none; }
+  .toggle-track {
+    position: absolute; inset: 0;
+    background: var(--border);
+    border-radius: 9px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .toggle input:checked + .toggle-track { background: var(--accent); }
+  .toggle-thumb {
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 14px; height: 14px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.2s;
+    pointer-events: none;
+  }
+  .toggle input:checked ~ .toggle-thumb { transform: translateX(14px); }
+  .auto-label { font-size: 11px; color: var(--text); flex: 1; }
+  .auto-badge {
+    font-size: 9px;
+    font-family: 'IBM Plex Mono', monospace;
+    background: var(--accent);
+    color: var(--bg);
+    padding: 1px 5px;
+    border-radius: 3px;
+    display: none;
+    animation: pulse 1.5s infinite;
+  }
+  .auto-badge.active { display: block; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+  /* Spinner */
+  .spinner {
+    width: 12px; height: 12px;
+    border: 2px solid transparent;
+    border-top-color: var(--bg);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    display: none;
+  }
+  .loading .spinner { display: block; }
+  .loading .btn-text { display: none; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .divider { height: 1px; background: var(--border); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-icon">
+      <svg viewBox="0 0 24 24"><path d="M3 5h2V3H3v2zm0 8h2v-2H3v2zm0 8h2v-2H3v2zm4-4h14v-2H7v2zm0-8v2h14V9H7zm0-6v2h14V3H7z"/></svg>
+    </div>
+    <div>
+      <div class="header-title">Text Markup Creator</div>
+      <div class="header-subtitle">Trimble Connect Extension</div>
+    </div>
+    <div class="status-dot" id="statusDot" title="A ligar..."></div>
+  </div>
+
+  <!-- Property name -->
+  <div>
+    <div class="section-label">Propriedade IFC</div>
+    <div class="input-row">
+      <input type="text" id="propName"
+        value="Repère Assemblage/Elément béton"
+        placeholder="Nome da propriedade IFC...">
+    </div>
+  </div>
+
+  <!-- Selection info -->
+  <div>
+    <div class="section-label">Seleção atual</div>
+    <div class="selection-box">
+      <div class="selection-count zero" id="selCount">0</div>
+      <div class="selection-info">
+        <div class="selection-label">objetos selecionados</div>
+        <div class="selection-detail" id="selDetail">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Auto mode -->
+  <div class="auto-row">
+    <label class="toggle">
+      <input type="checkbox" id="autoToggle">
+      <div class="toggle-track"></div>
+      <div class="toggle-thumb"></div>
+    </label>
+    <span class="auto-label">Modo automático (ao selecionar)</span>
+    <span class="auto-badge" id="autoBadge">ATIVO</span>
+  </div>
+
+  <!-- Main action -->
+  <button class="btn btn-primary" id="btnCreate" disabled>
+    <span class="spinner"></span>
+    <svg class="btn-text" viewBox="0 0 24 24" fill="currentColor"><path d="M3 5h2V3H3v2zm0 8h2v-2H3v2zm4-4h14v-2H7v2zm0 8v2h14v-2H7zM3 21h2v-2H3v2z"/></svg>
+    <span class="btn-text">Criar Text Markups</span>
+  </button>
+
+  <div class="divider"></div>
+
+  <!-- Log -->
+  <div class="section-label">Log</div>
+  <div class="log-box" id="logBox">
+    <div class="empty-log" id="emptyLog">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14l-5-5 1.41-1.41L12 14.17l7.59-7.59L21 8l-9 9z"/></svg>
+      <span>Aguardando ações...</span>
+    </div>
+  </div>
+
+  <!-- Bottom row -->
+  <div class="input-row">
+    <button class="btn btn-secondary" id="btnRefresh">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+      Atualizar seleção
+    </button>
+    <button class="btn btn-danger" id="btnClear">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      Limpar log
+    </button>
+  </div>
+
+</div>
+
+<script>
+(async () => {
+  // ── Estado ────────────────────────────────────────────────────────
+  let API = null;
+  let selectedObjects = [];
+  let autoMode = false;
+  let lastSelectionIds = '';
+  let autoInterval = null;
+
+  // ── UI refs ───────────────────────────────────────────────────────
+  const statusDot  = document.getElementById('statusDot');
+  const selCount   = document.getElementById('selCount');
+  const selDetail  = document.getElementById('selDetail');
+  const btnCreate  = document.getElementById('btnCreate');
+  const btnRefresh = document.getElementById('btnRefresh');
+  const btnClear   = document.getElementById('btnClear');
+  const autoToggle = document.getElementById('autoToggle');
+  const autoBadge  = document.getElementById('autoBadge');
+  const logBox     = document.getElementById('logBox');
+  const emptyLog   = document.getElementById('emptyLog');
+  const propInput  = document.getElementById('propName');
+
+  // ── Log ───────────────────────────────────────────────────────────
+  function log(msg, type = 'info') {
+    emptyLog.style.display = 'none';
+    const now = new Date().toLocaleTimeString('pt-PT', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    const entry = document.createElement('div');
+    entry.className = 'log-entry';
+    entry.innerHTML = `
+      <span class="log-time">${now}</span>
+      <span class="log-${type}">${type === 'ok' ? '✓' : type === 'err' ? '✗' : '→'}</span>
+      <span class="log-msg">${msg}</span>`;
+    logBox.appendChild(entry);
+    logBox.scrollTop = logBox.scrollHeight;
+  }
+
+  // ── Ligar à API ───────────────────────────────────────────────────
+  log('A ligar ao Trimble Connect...');
+  try {
+    API = await TrimbleConnectWorkspace.connect(
+      window.parent,
+      (event, data) => {
+        // Evento de seleção mudou
+        if (event === 'viewer.modelObject.selection') {
+          handleSelectionEvent(data);
+        }
+      },
+      15000
+    );
+
+    statusDot.classList.add('connected');
+    statusDot.title = 'Ligado';
+    log('Ligado ao Trimble Connect!', 'ok');
+
+    // Obter seleção inicial
+    await refreshSelection();
+
+  } catch (err) {
+    statusDot.classList.add('error');
+    statusDot.title = 'Erro de ligação';
+    log('Erro ao ligar: ' + err.message, 'err');
+    log('Certifique-se que esta extensão está instalada no Trimble Connect.', 'info');
+  }
+
+  // ── Atualizar seleção ─────────────────────────────────────────────
+  async function refreshSelection() {
+    if (!API) return;
+    try {
+      const sel = await API.viewer.getSelection();
+      selectedObjects = sel || [];
+      updateSelectionUI();
+    } catch (e) {
+      log('Erro ao obter seleção: ' + e.message, 'err');
+    }
+  }
+
+  function handleSelectionEvent(data) {
+    selectedObjects = data?.objects || [];
+    updateSelectionUI();
+
+    // Modo automático
+    if (autoMode && selectedObjects.length > 0) {
+      const ids = selectedObjects.map(o => o.id || o.modelObjectId || '').join(',');
+      if (ids !== lastSelectionIds) {
+        lastSelectionIds = ids;
+        setTimeout(() => createMarkups(), 300);
+      }
+    }
+  }
+
+  function updateSelectionUI() {
+    const n = selectedObjects.length;
+    selCount.textContent = n;
+    selCount.className = 'selection-count' + (n === 0 ? ' zero' : '');
+    btnCreate.disabled = (n === 0 || !API);
+
+    if (n === 0) {
+      selDetail.textContent = '—';
+    } else if (n === 1) {
+      const obj = selectedObjects[0];
+      selDetail.textContent = obj.class || obj.type || obj.id || 'objeto';
+    } else {
+      selDetail.textContent = `${n} objetos selecionados`;
+    }
+  }
+
+  // ── Criar Text Markups ────────────────────────────────────────────
+  async function createMarkups() {
+    if (!API || selectedObjects.length === 0) return;
+
+    const propName = propInput.value.trim() || 'Name';
+    btnCreate.classList.add('loading');
+    btnCreate.disabled = true;
+
+    log(`Criando markups para ${selectedObjects.length} objeto(s)... [prop: "${propName}"]`);
+
+    let ok = 0, fail = 0;
+
+    for (const obj of selectedObjects) {
+      try {
+        // Obter propriedades do objeto
+        const objId = obj.id || obj.modelObjectId;
+
+        // Tenta obter o valor da propriedade
+        let label = null;
+
+        // 1. Tenta via getProperties
+        try {
+          const props = await API.viewer.getObjectProperties(objId);
+          if (props) {
+            // Procura a propriedade pelo nome (case-insensitive)
+            const propLower = propName.toLowerCase();
+            for (const set of (props.sets || props.propertySets || [])) {
+              for (const prop of (set.properties || set.attributes || [])) {
+                if ((prop.name || prop.key || '').toLowerCase() === propLower) {
+                  label = prop.value;
+                  break;
+                }
+              }
+              if (label) break;
+            }
+
+            // Fallback: procura em qualquer nível
+            if (!label) {
+              const flat = flattenProps(props);
+              label = flat[propName] || flat[propName.toLowerCase()] || flat[propName.toUpperCase()];
+            }
+          }
+        } catch (e) { /* tenta próxima abordagem */ }
+
+        // 2. Fallback: usa o tipo/classe do objeto
+        if (!label) {
+          label = obj.class || obj.type || objId?.substring(0, 12) || '?';
+          log(`Propriedade "${propName}" não encontrada em ${objId?.substring(0,8)}... — usando fallback: ${label}`, 'info');
+        }
+
+        // Criar o text markup
+        const markupText = `${label}`;
+
+        await API.markups.addTextMarkup([{
+          text: markupText,
+          modelObjectId: objId,
+          // Posição relativa ao centro do objeto (o viewer calcula automaticamente)
+        }]);
+
+        log(`✓ Markup criado: "${markupText}"`, 'ok');
+        ok++;
+
+      } catch (e) {
+        log(`✗ Erro em objeto ${obj.id?.substring(0,8)}: ${e.message}`, 'err');
+        fail++;
+      }
+    }
+
+    log(`Concluído: ${ok} criado(s), ${fail} falha(s).`, ok > 0 ? 'ok' : 'err');
+
+    btnCreate.classList.remove('loading');
+    btnCreate.disabled = (selectedObjects.length === 0);
+  }
+
+  // Aplainar propriedades aninhadas
+  function flattenProps(obj, prefix = '') {
+    const result = {};
+    if (!obj || typeof obj !== 'object') return result;
+    for (const [k, v] of Object.entries(obj)) {
+      const key = prefix ? `${prefix}.${k}` : k;
+      if (v && typeof v === 'object' && !Array.isArray(v)) {
+        Object.assign(result, flattenProps(v, key));
+        // Também adiciona sem prefixo para facilitar lookup
+        Object.assign(result, flattenProps(v, ''));
+      } else if (Array.isArray(v)) {
+        for (const item of v) Object.assign(result, flattenProps(item, ''));
+      } else {
+        result[key] = String(v);
+        result[k] = String(v); // também sem prefixo
+      }
+    }
+    return result;
+  }
+
+  // ── Event listeners ───────────────────────────────────────────────
+  btnCreate.addEventListener('click', createMarkups);
+
+  btnRefresh.addEventListener('click', async () => {
+    await refreshSelection();
+    log('Seleção atualizada.', 'ok');
+  });
+
+  btnClear.addEventListener('click', () => {
+    logBox.innerHTML = '';
+    emptyLog.style.display = 'flex';
+    logBox.appendChild(emptyLog);
+  });
+
+  autoToggle.addEventListener('change', () => {
+    autoMode = autoToggle.checked;
+    autoBadge.classList.toggle('active', autoMode);
+    log(autoMode ? 'Modo automático ativado.' : 'Modo automático desativado.', 'info');
+  });
+
+})();
+</script>
+</body>
+</html>
